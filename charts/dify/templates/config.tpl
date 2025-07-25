@@ -33,12 +33,6 @@ MIGRATION_ENABLED: {{ .Values.api.migration | toString | quote }}
 # It is consistent with the configuration in the 'db' service below.
 {{- include "dify.db.config" . }}
 
-# The configurations of redis connection.
-# It is consistent with the configuration in the 'redis' service below.
-{{- include "dify.redis.config" . }}
-
-# The configurations of celery broker.
-{{- include "dify.celery.config" . }}
 # Specifies the allowed origins for cross-origin requests to the Web API, e.g. https://dify.app or * for all origins.
 WEB_API_CORS_ALLOW_ORIGINS: '*'
 # Specifies the allowed origins for cross-origin requests to the console API, e.g. https://cloud.dify.ai or * for all origins.
@@ -56,7 +50,6 @@ CONSOLE_CORS_ALLOW_ORIGINS: '*'
 #
 
 {{ include "dify.storage.config" . }}
-{{ include "dify.vectordb.config" . }}
 {{ include "dify.mail.config" . }}
 # The DSN for Sentry error reporting. If not set, Sentry error reporting will be disabled.
 SENTRY_DSN: ''
@@ -100,15 +93,9 @@ LOG_LEVEL: {{ .Values.worker.logLevel | quote }}
 # It is consistent with the configuration in the 'db' service below.
 {{ include "dify.db.config" . }}
 
-# The configurations of redis cache connection.
-{{ include "dify.redis.config" . }}
-# The configurations of celery broker.
-{{ include "dify.celery.config" . }}
 # The configurations of celery backend
 CELERY_BACKEND: redis
 {{ include "dify.storage.config" . }}
-# The Vector store configurations.
-{{ include "dify.vectordb.config" . }}
 {{ include "dify.mail.config" . }}
 {{- if .Values.pluginDaemon.enabled }}
 PLUGIN_DAEMON_URL: http://{{ template "dify.pluginDaemon.fullname" .}}:{{ .Values.pluginDaemon.service.ports.daemon }}
@@ -162,8 +149,8 @@ DB_DATABASE: {{ .Values.postgresql.global.postgresql.auth.database }}
 {{- end }}
 {{- end }}
 
-{{- define "dify.storage.config" -}}
-{{- if .Values.externalS3.enabled }}
+{{- define "dify.s3.config" -}}
+{{- if and .Values.externalS3.enabled (not .Values.externalSecret.enabled) }}
 # The type of storage to use for storing user files. Supported values are `local`, `s3`, `azure-blob`, `aliyun-oss` and `google-storage`, Default: `local`
 STORAGE_TYPE: s3
 # The S3 storage configurations, only available when STORAGE_TYPE is `s3`.
@@ -173,7 +160,12 @@ S3_BUCKET_NAME: {{ .Values.externalS3.bucketName.api | quote }}
 # S3_SECRET_KEY: {{ .Values.externalS3.secretKey | quote }}
 S3_REGION: {{ .Values.externalS3.region | quote }}
 S3_USE_AWS_MANAGED_IAM: {{ .Values.externalS3.useIAM | toString | quote }}
-{{- else if .Values.externalAzureBlobStorage.enabled }}
+{{- end }}
+{{- end }}
+
+{{- define "dify.storage.config" -}}
+{{- include "dify.s3.config" . }}
+{{- if .Values.externalAzureBlobStorage.enabled }}
 # The type of storage to use for storing user files. Supported values are `local`, `s3`, `azure-blob`, `aliyun-oss` and `google-storage`, Default: `local`
 STORAGE_TYPE: azure-blob
 # The Azure Blob storage configurations, only available when STORAGE_TYPE is `azure-blob`.
@@ -232,137 +224,7 @@ STORAGE_LOCAL_PATH: {{ .Values.api.persistence.mountPath | quote }}
 {{- end }}
 {{- end }}
 
-{{- define "dify.redis.config" -}}
-{{- if .Values.externalRedis.enabled }}
-  {{- with .Values.externalRedis }}
-REDIS_HOST: {{ .host | quote }}
-REDIS_PORT: {{ .port | toString | quote }}
-# REDIS_USERNAME: {{ .username | quote }}
-# REDIS_PASSWORD: {{ .password | quote }}
-REDIS_USE_SSL: {{ .useSSL | toString | quote }}
-# use redis db 0 for redis cache
-REDIS_DB: "0"
-  {{- end }}
-{{- else if .Values.redis.enabled }}
-{{- $redisHost := printf "%s-redis-master" .Release.Name -}}
-  {{- with .Values.redis }}
-REDIS_HOST: {{ $redisHost }}
-REDIS_PORT: {{ .master.service.ports.redis | toString | quote }}
-# REDIS_USERNAME: ""
-# REDIS_PASSWORD: {{ .auth.password | quote }}
-REDIS_USE_SSL: {{ .tls.enabled | toString | quote }}
-# use redis db 0 for redis cache
-REDIS_DB: "0"
-  {{- end }}
-{{- end }}
-{{- end }}
 
-{{- define "dify.celery.config" -}}
-# Use redis as the broker, and redis db 1 for celery broker.
-{{- if .Values.externalRedis.enabled }}
-  {{- with .Values.externalRedis }}
-    {{- $scheme := "redis" }}
-    {{- if .useSSL }}
-      {{- $scheme = "rediss" }}
-    {{- end }}
-# CELERY_BROKER_URL: {{ printf "%s://%s:%s@%s:%v/1" $scheme .username .password .host .port }}
-  {{- end }}
-{{- else if .Values.redis.enabled }}
-{{- $redisHost := printf "%s-redis-master" .Release.Name -}}
-  {{- with .Values.redis }}
-# CELERY_BROKER_URL: {{ printf "redis://:%s@%s:%v/1" .auth.password $redisHost .master.service.ports.redis }}
-  {{- end }}
-{{- end }}
-{{- end }}
-
-{{- define "dify.vectordb.config" -}}
-{{- if .Values.externalWeaviate.enabled }}
-# The type of vector store to use. Supported values are `weaviate`, `qdrant`, `milvus`, `pgvector`, `tencent`, `myscale`.
-VECTOR_STORE: weaviate
-# The Weaviate endpoint URL. Only available when VECTOR_STORE is `weaviate`.
-WEAVIATE_ENDPOINT: {{ .Values.externalWeaviate.endpoint | quote }}
-# The Weaviate API key.
-# WEAVIATE_API_KEY: {{ .Values.externalWeaviate.apiKey }}
-{{- else if .Values.externalQdrant.enabled }}
-VECTOR_STORE: qdrant
-# The Qdrant endpoint URL. Only available when VECTOR_STORE is `qdrant`.
-QDRANT_URL: {{ .Values.externalQdrant.endpoint | quote }}
-# The Qdrant API key.
-# QDRANT_API_KEY: {{ .Values.externalQdrant.apiKey | quote }}
-# The Qdrant clinet timeout setting.
-QDRANT_CLIENT_TIMEOUT: {{ .Values.externalQdrant.timeout | quote }}
-# The Qdrant client enable gRPC mode.
-QDRANT_GRPC_ENABLED: {{ .Values.externalQdrant.grpc.enabled | toString | quote }}
-# The Qdrant server gRPC mode PORT.
-QDRANT_GRPC_PORT: {{ .Values.externalQdrant.grpc.port | quote }}
-# The DSN for Sentry error reporting. If not set, Sentry error reporting will be disabled.
-{{- else if .Values.externalMilvus.enabled }}
-# Milvus configuration Only available when VECTOR_STORE is `milvus`.
-VECTOR_STORE: milvus
-# Milvus endpoint
-MILVUS_URI: {{ .Values.externalMilvus.uri | quote }}
-# The milvus database
-MILVUS_DATABASE: {{ .Values.externalMilvus.database | quote }}
-{{- else if .Values.externalPgvector.enabled}}
-# pgvector configurations, only available when VECTOR_STORE is `pgvecto-rs or pgvector`
-VECTOR_STORE: pgvector
-PGVECTOR_HOST: {{ .Values.externalPgvector.address }}
-PGVECTOR_PORT: {{ .Values.externalPgvector.port | toString | quote }}
-PGVECTOR_DATABASE: {{ .Values.externalPgvector.dbName }}
-# DB_USERNAME: {{ .Values.externalPgvector.username | quote }}
-# DB_PASSWORD: {{ .Values.externalPgvector.password | quote }}
-{{- else if .Values.externalTencentVectorDB.enabled }}
-# tencent vector configurations, only available when VECTOR_STORE is `tencent`
-VECTOR_STORE: tencent
-TENCENT_VECTOR_DB_URL: {{ .Values.externalTencentVectorDB.url | quote }}
-# TENCENT_VECTOR_DB_API_KEY: {{ .Values.externalTencentVectorDB.apiKey | quote }}
-TENCENT_VECTOR_DB_TIMEOUT: {{ .Values.externalTencentVectorDB.timeout | quote }}
-# TENCENT_VECTOR_DB_USERNAME: {{ .Values.externalTencentVectorDB.username | quote }}
-TENCENT_VECTOR_DB_DATABASE: {{ .Values.externalTencentVectorDB.database | quote }}
-TENCENT_VECTOR_DB_SHARD: {{ .Values.externalTencentVectorDB.shard | quote }}
-TENCENT_VECTOR_DB_REPLICAS: {{ .Values.externalTencentVectorDB.replicas | quote }}
-{{- else if .Values.externalMyScaleDB.enabled}}
-# MyScaleDB vector db configurations, only available when VECTOR_STORE is `myscale`
-VECTOR_STORE: myscale
-MYSCALE_HOST: {{ .Values.externalMyScaleDB.host | quote }}
-MYSCALE_PORT: {{ .Values.externalMyScaleDB.port | toString | quote }}
-# MYSCALE_USER: {{ .Values.externalMyScaleDB.username | quote }}
-# MYSCALE_PASSWORD: {{ .Values.externalMyScaleDB.password | quote }}
-MYSCALE_DATABASE: {{ .Values.externalMyScaleDB.database | quote }}
-MYSCALE_FTS_PARAMS: {{ .Values.externalMyScaleDB.ftsParams | quote }}
-{{- else if .Values.externalTableStore.enabled }}
-# TableStore configurations, only available when VECTOR_STORE is `tablestore`
-VECTOR_STORE: tablestore
-TABLESTORE_ENDPOINT: {{ .Values.externalTableStore.endpoint | quote }}
-TABLESTORE_INSTANCE_NAME: {{ .Values.externalTableStore.instanceName | quote }}
-# TABLESTORE_ACCESS_KEY_ID: {{ .Values.externalTableStore.accessKeyId | quote }}
-# TABLESTORE_ACCESS_KEY_SECRET: {{ .Values.externalTableStore.accessKeySecret | quote }}
-{{- else if .Values.externalElasticsearch.enabled }}
-# Elasticsearch configurations, only available when VECTOR_STORE is `elasticsearch`
-VECTOR_STORE: elasticsearch
-ELASTICSEARCH_HOST: {{ .Values.externalElasticsearch.host | quote }}
-ELASTICSEARCH_PORT: {{ .Values.externalElasticsearch.port | toString | quote }}
-# ELASTICSEARCH_USERNAME: {{ .Values.externalElasticsearch.username | quote }}
-# ELASTICSEARCH_PASSWORD: {{ .Values.externalElasticsearch.password | quote }}
-{{- else if .Values.weaviate.enabled }}
-# The type of vector store to use. Supported values are `weaviate`, `qdrant`, `milvus`.
-VECTOR_STORE: weaviate
-  {{- with .Values.weaviate.service }}
-    {{- if and (eq .type "ClusterIP") (not (eq .clusterIP "None"))}}
-# The Weaviate endpoint URL. Only available when VECTOR_STORE is `weaviate`.
-{{/*
-Pitfall: scheme (i.e.) must be supecified, or weviate client won't function as
-it depends on `hostname` from urllib.parse.urlparse will be empty if schema is not specified.
-*/}}
-WEAVIATE_ENDPOINT: {{ printf "http://%s" .name | quote }}
-    {{- end }}
-  {{- end }}
-# The Weaviate API key.
-  {{- if .Values.weaviate.authentication.apikey }}
-# WEAVIATE_API_KEY: {{ first .Values.weaviate.authentication.apikey.allowed_keys }}
-  {{- end }}
-{{- end }}
-{{- end }}
 
 {{- define "dify.mail.config" -}}
 {{- if eq .Values.api.mail.type "resend" }}
@@ -573,7 +435,6 @@ DB_DATABASE: {{ .Values.externalPostgres.database.pluginDaemon | quote }}
 {{- end }}
 
 {{- define "dify.pluginDaemon.config" }}
-{{- include "dify.redis.config" . }}
 {{- include "dify.pluginDaemon.db.config" .}}
 {{- include "dify.pluginDaemon.storage.config" .}}
 SERVER_PORT: "5002"

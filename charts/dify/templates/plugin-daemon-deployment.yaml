@@ -90,9 +90,28 @@ spec:
             name: {{ template "dify.pluginDaemon.fullname" . }}
         - secretRef:
             name: {{ template "dify.pluginDaemon.fullname" . }}
-        {{- if and .Values.externalSecret.enabled .Values.externalSecret.elasticsearch.enabled .Values.externalElasticsearch.enabled }}
+        {{- if and .Values.externalSecret.enabled .Values.externalSecret.redis.enabled .Values.externalRedis.enabled }}
         - secretRef:
-            name: {{ template "dify.elasticsearch.secretname" . }}
+            name: {{ template "dify.fullname" . }}-external-redis
+        {{- else if and .Values.externalSecret.enabled .Values.externalSecret.redis.auth.enabled .Values.redis.enabled }}
+        - secretRef:
+            name: {{ .Values.redis.auth.existingSecret | default (printf "%s-redis-auth" (include "dify.fullname" .)) }}
+        {{- end }}
+        {{- if and .Values.externalSecret.enabled .Values.externalSecret.redis.connection.enabled .Values.redis.enabled }}
+        - secretRef:
+            name: {{ include "dify.fullname" . }}-redis-connection
+        {{- end }}
+        {{- if and .Values.externalSecret.enabled .Values.externalElasticsearch.enabled }}
+        - secretRef:
+            name: {{ include "dify.fullname" . }}-vectordb
+        {{- end }}
+        {{- if and .Values.externalSecret.enabled .Values.externalS3.enabled }}
+        - secretRef:
+            name: {{ include "dify.fullname" . }}-s3
+        {{- end }}
+        {{- if and .Values.externalSecret.enabled (or .Values.externalPostgres.enabled .Values.postgresql.enabled) }}
+        - secretRef:
+            name: {{ include "dify.fullname" . }}-database
         {{- end }}
         ports:
         - name: daemon

@@ -957,7 +957,7 @@ redis:
     ## @param auth.existingSecret The name of an existing secret with Redis&reg; credentials
     ## NOTE: When it's set, the previous `auth.password` parameter is ignored
     ##
-    existingSecret: "redis-secret"
+    existingSecret: ""
     ## @param auth.existingSecretPasswordKey Password key to be retrieved from existing secret
     ## NOTE: ignored unless `auth.existingSecret` parameter is set
     ##
@@ -1909,8 +1909,6 @@ externalSecret:
       S3_SECRET_KEY:
         key: "dify/s3"
         property: "secret_key"
-    data:
-      CELERY_BROKER_URL: "redis://:{{ .REDIS_PASSWORD }}@dify-test-eso-external-es-redis-master:6379/1"
 
   # Configuration for worker secret
   worker:
@@ -1948,8 +1946,6 @@ externalSecret:
       S3_SECRET_KEY:
         key: "dify/s3"
         property: "secret_key"
-    data:
-      CELERY_BROKER_URL: "redis://:{{ .REDIS_PASSWORD }}@dify-test-eso-external-es-redis-master:6379/1"
 
   # Configuration for sandbox secret
   sandbox:
@@ -1994,20 +1990,33 @@ externalSecret:
         key: "dify/postgresql"
         property: "replication_password"
 
-  # Configuration for Redis secret (for built-in Redis with ExternalSecret)
+  # Configuration for Redis secrets (for built-in Redis with ExternalSecret)
   redis:
-    # Whether to create ExternalSecret for built-in Redis
-    enabled: true
-    # Remote references for external secret store
-    remoteRefs:
-      redis-password:
-        key: "dify/redis"
-        property: "redis_password"
+    # Redis authentication secret
+    auth:
+      # Whether to create ExternalSecret for Redis authentication
+      enabled: true
+      # Remote references for external secret store
+      remoteRefs:
+        redis-password:
+          key: "dify/redis"
+          property: "redis_password"
+    
+    # Redis connection secret  
+    connection:
+      # Whether to create ExternalSecret for Redis connection info
+      enabled: true
+      # Remote references for external secret store (if any)
+      remoteRefs: {}
+      # Static data fields for connection information
+      data:
+        redis-username: ""
+        CELERY_BROKER_URL: "redis://:{{ `{{ index . \"redis-password\" }}` }}@dify-test-eso-external-es-redis-master:6379/1"
 
   # Configuration for Elasticsearch secret (for external Elasticsearch with ExternalSecret)
   elasticsearch:
     # Whether to create ExternalSecret for external Elasticsearch
-    enabled: true
+    enabled: false
     # Refresh interval for the ExternalSecret
     refreshInterval: "15m"
     # Remote references for external secret store

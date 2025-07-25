@@ -3261,12 +3261,6 @@ externalSecret:
       CODE_EXECUTION_API_KEY:
         key: "dify/sandbox"
         property: "api_key"
-      DB_USERNAME:
-        key: "dify/database"
-        property: "username"
-      DB_PASSWORD:
-        key: "dify/database"
-        property: "password"
       REDIS_PASSWORD:
         key: "dify/redis"
         property: "password"
@@ -3282,14 +3276,6 @@ externalSecret:
       INNER_API_KEY_FOR_PLUGIN:
         key: "dify/plugin-daemon"
         property: "dify_api_key"
-      S3_ACCESS_KEY:
-        key: "dify/s3"
-        property: "access_key"
-      S3_SECRET_KEY:
-        key: "dify/s3"
-        property: "secret_key"
-    data:
-      CELERY_BROKER_URL: "reids://:{{ .REDIS_PASSWORD }}@redis:6379/1"
 
   # Configuration for worker secret
   worker:
@@ -3300,12 +3286,6 @@ externalSecret:
       SECRET_KEY:
         key: "dify/api"
         property: "secret_key"
-      DB_USERNAME:
-        key: "dify/database"
-        property: "username"
-      DB_PASSWORD:
-        key: "dify/database"
-        property: "password"
       REDIS_PASSWORD:
         key: "dify/redis"
         property: "password"
@@ -3321,14 +3301,6 @@ externalSecret:
       INNER_API_KEY_FOR_PLUGIN:
         key: "dify/plugin-daemon"
         property: "dify_api_key"
-      S3_ACCESS_KEY:
-        key: "dify/s3"
-        property: "access_key"
-      S3_SECRET_KEY:
-        key: "dify/s3"
-        property: "secret_key"
-    data:
-      CELERY_BROKER_URL: "reids://:{{ .REDIS_PASSWORD }}@redis:6379/1"
 
   # Configuration for sandbox secret
   sandbox:
@@ -3344,12 +3316,6 @@ externalSecret:
     enabled: true
     # Remote references for external secret store
     remoteRefs:
-      DB_USERNAME:
-        key: "dify/database"
-        property: "username"
-      DB_PASSWORD:
-        key: "dify/database"
-        property: "password"
       REDIS_PASSWORD:
         key: "dify/redis"
         property: "password"
@@ -3373,15 +3339,27 @@ externalSecret:
         key: "dify/postgresql"
         property: "replication_password"
 
-  # Configuration for Redis secret (for built-in Redis with ExternalSecret)
+  # Configuration for Redis secrets (Built-in redis secrets - separated into auth and connection)
   redis:
-    # Whether to create ExternalSecret for built-in Redis
-    enabled: true
-    # Remote references for external secret store
-    remoteRefs:
-      redis-password:
-        key: "dify/redis"
-        property: "redis_password"
+    # Redis authentication secret
+    auth:
+      # Whether to create ExternalSecret for Redis authentication
+      enabled: true
+      # Remote references for external secret store
+      remoteRefs:
+        redis-password:
+          key: "dify/redis"
+          property: "redis_password"
+    
+    # Redis connection secret  
+    connection:
+      # Whether to create ExternalSecret for Redis connection info
+      enabled: true
+      # Remote references for external secret store (if any)
+      remoteRefs: {}
+      # Static data fields for connection information
+      data:
+        CELERY_BROKER_URL: "redis://:{{ `{{ index . \"redis-password\" }}` }}@{{ include \"dify.fullname\" . }}-redis-master:6379/1"
 
   # Configuration for Elasticsearch secret (for external Elasticsearch with ExternalSecret)
   elasticsearch:
@@ -3398,4 +3376,34 @@ externalSecret:
         property: "username"
       ELASTICSEARCH_PASSWORD:
         key: "dify/elasticsearch"
+        property: "password"
+
+  # Configuration for S3 secret (unified S3 storage management)
+  s3:
+    # Whether to create ExternalSecret for S3 storage
+    enabled: false
+    # Remote references for external secret store
+    # Only sensitive data (access keys) are fetched from external store
+    # Static values (endpoint/bucket/region) are taken from values.yaml
+    remoteRefs:
+      S3_ACCESS_KEY:
+        key: "dify/s3"
+        property: "access_key"
+      S3_SECRET_KEY:
+        key: "dify/s3"
+        property: "secret_key"
+
+  # Configuration for Database secret (unified database management)
+  database:
+    # Whether to create ExternalSecret for database
+    enabled: false
+    # Remote references for external secret store
+    # Only sensitive data (username/password) are fetched from external store
+    # Static values (host/port/database) are taken from values.yaml
+    remoteRefs:
+      DB_USERNAME:
+        key: "dify/database"
+        property: "username"
+      DB_PASSWORD:
+        key: "dify/database"
         property: "password"

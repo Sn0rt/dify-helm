@@ -3256,8 +3256,6 @@ externalSecret:
       S3_SECRET_KEY:
         key: "dify/s3"
         property: "secret_key"
-    data:
-      CELERY_BROKER_URL: "redis://:{{ .REDIS_PASSWORD }}@dify-test-eso-external-s3-redis-master:6379/1"
 
   # Configuration for worker secret
   worker:
@@ -3297,8 +3295,6 @@ externalSecret:
       S3_SECRET_KEY:
         key: "dify/s3"
         property: "secret_key"
-    data:
-      CELERY_BROKER_URL: "redis://:{{ .REDIS_PASSWORD }}@dify-test-eso-external-s3-redis-master:6379/1"
 
   # Configuration for sandbox secret
   sandbox:
@@ -3351,14 +3347,42 @@ externalSecret:
         key: "dify/postgresql"
         property: "replication_password"
 
-  # Configuration for Redis secret (for built-in Redis with ExternalSecret)
+  # Configuration for Redis secrets (for built-in Redis with ExternalSecret)
   redis:
-    # Whether to create ExternalSecret for built-in Redis
-    enabled: true
+    # Redis authentication secret
+    auth:
+      # Whether to create ExternalSecret for Redis authentication
+      enabled: true
+      # Remote references for external secret store
+      remoteRefs:
+        redis-password:
+          key: "dify/redis"
+          property: "redis_password"
+    
+    # Redis connection secret  
+    connection:
+      # Whether to create ExternalSecret for Redis connection info
+      enabled: true
+      # Remote references for external secret store (if any)
+      remoteRefs: {}
+      # Static data fields for connection information
+      data:
+        redis-username: ""
+        CELERY_BROKER_URL: "redis://:{{ `{{ index . \"redis-password\" }}` }}@dify-test-eso-external-s3-redis-master:6379/1"
+
+  # Configuration for Elasticsearch secret (for external Elasticsearch with ExternalSecret)
+  elasticsearch:
+    # Whether to create ExternalSecret for external Elasticsearch
+    enabled: false
     # Refresh interval for the ExternalSecret
     refreshInterval: "15m"
     # Remote references for external secret store
+    # Only sensitive data (username/password) are fetched from external store
+    # Static values (host/port) are taken from values.yaml
     remoteRefs:
-      redis-password:
-        key: "dify/redis"
-        property: "redis_password"
+      ELASTICSEARCH_USERNAME:
+        key: "dify/elasticsearch"
+        property: "elasticsearch_username"
+      ELASTICSEARCH_PASSWORD:
+        key: "dify/elasticsearch"
+        property: "elasticsearch_password"
