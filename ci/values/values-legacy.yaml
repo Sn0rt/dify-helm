@@ -3214,3 +3214,22 @@ externalTableStore:
   instanceName: "instance-name"
   accessKeyId: "your-secret-id"
   accessKeySecret: "your-secret-key"
+
+###################################
+# External Elasticsearch
+# - these configs take effect only if all other vector databases are disabled and `externalElasticsearch.enabled` is `true`
+###################################
+externalElasticsearch:
+  enabled: false
+  host: "elasticsearch.example.com"
+  port: 9200
+  username: "abc"
+  password: "abc"
+
+###################################
+# External Secret (External Secrets Operator)
+# - these configs are used when `externalSecret.enabled` is true
+# - when enabled, the built-in Secret resources will be replaced by ExternalSecret resources
+###################################
+externalSecret:
+  enabled: false
