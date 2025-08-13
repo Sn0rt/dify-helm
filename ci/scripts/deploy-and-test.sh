@@ -628,6 +628,30 @@ test_connectivity_batch "$SERVICES_TO_TEST"
 # Check secrets and configs
 check_secrets_and_configs
 
+# Check for OTEL configuration and run OTEL integration tests if enabled
+if grep -q "otel:" "ci/values/$VALUES_FILE" || grep -q "OTEL" "ci/values/$VALUES_FILE"; then
+    echo "INFO: OTEL configuration detected in values file"
+    echo "INFO: Running OpenTelemetry integration tests..."
+    echo "=============================================="
+    
+    # Check if OTEL integration test script exists
+    if [[ -f "ci/scripts/test-otel-integration.sh" ]]; then
+        echo "INFO: Executing OTEL integration tests..."
+        if ./ci/scripts/test-otel-integration.sh; then
+            log_success "OpenTelemetry integration tests passed"
+        else
+            log_failure "OpenTelemetry integration tests failed"
+        fi
+    else
+        echo "WARNING: OTEL configuration found but test-otel-integration.sh script not found"
+        echo "INFO: Skipping OTEL integration tests"
+    fi
+    
+    echo "=============================================="
+else
+    echo "INFO: No OTEL configuration detected, skipping OTEL integration tests"
+fi
+
 # Run Helm test if available
 echo "INFO: Running Helm tests..."
 if ! helm test "$RELEASE_NAME" -n "$NAMESPACE" --timeout 300s; then
